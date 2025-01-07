@@ -77,8 +77,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
       const { data: notifications, error: fetchError } = await supabase
         .from('notifications')
         .select('id')
-        .eq('task_id', taskId)
-        .throwOnError();
+        .eq('task_id', taskId);
 
       if (fetchError) {
         console.error("Error fetching notifications:", fetchError);
@@ -90,8 +89,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
         const { error: notificationsError } = await supabase
           .from('notifications')
           .delete()
-          .eq('task_id', taskId)
-          .throwOnError();
+          .eq('task_id', taskId);
 
         if (notificationsError) {
           console.error("Error deleting notifications:", notificationsError);
@@ -103,8 +101,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
       const { error: taskError } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', taskId)
-        .throwOnError();
+        .eq('id', taskId);
 
       if (taskError) {
         console.error("Error deleting task:", taskError);
