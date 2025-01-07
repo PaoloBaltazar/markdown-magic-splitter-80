@@ -5,7 +5,7 @@ import { TaskForm } from "@/components/dashboard/TaskForm";
 import { useToast } from "@/hooks/use-toast";
 import { Task } from "@/types/task";
 import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { EventList } from "@/components/calendar/EventList";
 import { startOfDay, endOfDay, parseISO, isEqual } from "date-fns";
@@ -13,6 +13,29 @@ import { startOfDay, endOfDay, parseISO, isEqual } from "date-fns";
 const Calendar = () => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('tasks-calendar-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch tasks using React Query
   const { data: tasks = [], refetch: refetchTasks } = useQuery({
@@ -35,28 +58,6 @@ const Calendar = () => {
       return data as Task[];
     },
   });
-
-  // Set up real-time subscription for tasks
-  useEffect(() => {
-    const channel = supabase
-      .channel('tasks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        () => {
-          refetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [refetchTasks]);
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
