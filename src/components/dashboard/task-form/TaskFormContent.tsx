@@ -80,6 +80,7 @@ export const TaskFormContent = ({ onSuccess, onCancel }: TaskFormContentProps) =
       return;
     }
 
+    // Create new task without specifying an ID
     const newTask = {
       title,
       deadline,
@@ -97,6 +98,7 @@ export const TaskFormContent = ({ onSuccess, onCancel }: TaskFormContentProps) =
       .single();
 
     if (error) {
+      console.error("Task creation error:", error);
       toast({
         title: "Error",
         description: "Failed to create task",
@@ -105,6 +107,7 @@ export const TaskFormContent = ({ onSuccess, onCancel }: TaskFormContentProps) =
       return;
     }
 
+    // Type assertion for the returned task
     const taskWithCorrectTypes = {
       ...data,
       priority: data.priority as Task["priority"],
