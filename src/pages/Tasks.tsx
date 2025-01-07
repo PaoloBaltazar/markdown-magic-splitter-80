@@ -14,6 +14,7 @@ const Tasks = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  // Auth check effect
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -65,6 +66,8 @@ const Tasks = () => {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: taskService.getTasks,
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache the data
   });
 
   // Create task mutation
