@@ -73,13 +73,28 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
 
   const handleDelete = async (taskId: string) => {
     try {
-      // First, delete all associated notifications
-      const { error: notificationsError } = await supabase
+      // Start a transaction by deleting notifications first
+      const { data: notifications, error: fetchError } = await supabase
         .from('notifications')
-        .delete()
+        .select('id')
         .eq('task_id', taskId);
 
-      if (notificationsError) throw notificationsError;
+      if (fetchError) {
+        console.error("Error fetching notifications:", fetchError);
+        throw fetchError;
+      }
+
+      if (notifications && notifications.length > 0) {
+        const { error: notificationsError } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('task_id', taskId);
+
+        if (notificationsError) {
+          console.error("Error deleting notifications:", notificationsError);
+          throw notificationsError;
+        }
+      }
 
       // Then delete the task
       const { error: taskError } = await supabase
@@ -87,7 +102,10 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
         .delete()
         .eq('id', taskId);
 
-      if (taskError) throw taskError;
+      if (taskError) {
+        console.error("Error deleting task:", taskError);
+        throw taskError;
+      }
 
       onTasksChange();
       toast({
