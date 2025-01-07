@@ -18,7 +18,7 @@ const Calendar = () => {
   // Set up real-time subscription
   useEffect(() => {
     const channel = supabase
-      .channel('tasks-calendar-changes')
+      .channel('tasks-changes')
       .on(
         'postgres_changes',
         {
@@ -26,7 +26,8 @@ const Calendar = () => {
           schema: 'public',
           table: 'tasks'
         },
-        () => {
+        (payload) => {
+          console.log('Calendar: Real-time update received', payload);
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }
       )

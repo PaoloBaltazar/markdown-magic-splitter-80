@@ -41,7 +41,7 @@ const Tasks = () => {
   // Set up real-time subscription
   useEffect(() => {
     const channel = supabase
-      .channel('tasks_changes')
+      .channel('tasks-changes')
       .on(
         'postgres_changes',
         {
@@ -49,7 +49,8 @@ const Tasks = () => {
           schema: 'public',
           table: 'tasks'
         },
-        () => {
+        (payload) => {
+          console.log('Tasks: Real-time update received', payload);
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }
       )
