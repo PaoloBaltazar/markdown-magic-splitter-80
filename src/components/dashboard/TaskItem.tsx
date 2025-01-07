@@ -117,7 +117,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
       console.error("Delete operation failed:", error);
       toast({
         title: "Error",
-        description: "Failed to delete task",
+        description: "Failed to delete task. Please try again.",
         variant: "destructive",
       });
     }
