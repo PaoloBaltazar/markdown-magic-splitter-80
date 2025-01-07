@@ -106,25 +106,42 @@ export const TaskList = ({
   };
 
   const handleDelete = async (taskId: string) => {
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId);
+    try {
+      // First, delete all associated notifications
+      const { error: notificationsError } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('task_id', taskId);
 
-    if (error) {
+      if (notificationsError) {
+        console.error("Error deleting notifications:", notificationsError);
+        throw notificationsError;
+      }
+
+      // Then delete the task
+      const { error: taskError } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (taskError) {
+        console.error("Error deleting task:", taskError);
+        throw taskError;
+      }
+
+      onTasksChange();
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+      });
+    } catch (error) {
+      console.error("Delete operation failed:", error);
       toast({
         title: "Error",
         description: "Failed to delete task",
         variant: "destructive",
       });
-      return;
     }
-
-    onTasksChange();
-    toast({
-      title: "Success",
-      description: "Task deleted successfully",
-    });
   };
 
   return (
