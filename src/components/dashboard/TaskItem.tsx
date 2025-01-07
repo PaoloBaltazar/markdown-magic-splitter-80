@@ -79,10 +79,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
         .delete()
         .eq('task_id', taskId);
 
-      if (notificationsError) {
-        console.error("Error deleting notifications:", notificationsError);
-        throw notificationsError;
-      }
+      if (notificationsError) throw notificationsError;
 
       // Then delete the task
       const { error: taskError } = await supabase
@@ -90,10 +87,7 @@ export const TaskItem = ({ task, showAssignment = true, onStatusChange, onTasksC
         .delete()
         .eq('id', taskId);
 
-      if (taskError) {
-        console.error("Error deleting task:", taskError);
-        throw taskError;
-      }
+      if (taskError) throw taskError;
 
       onTasksChange();
       toast({
