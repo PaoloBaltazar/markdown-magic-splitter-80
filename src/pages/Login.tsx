@@ -23,6 +23,10 @@ const Login = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === "SIGNED_IN") {
+          if (!session?.user.email_confirmed_at) {
+            navigate("/verify");
+            return;
+          }
           toast({
             title: "Success",
             description: "Successfully signed in",
@@ -53,6 +57,18 @@ const Login = () => {
             },
           }}
           providers={[]}
+          localization={{
+            variables: {
+              sign_in: {
+                email_label: "Outlook Email",
+                email_input_placeholder: "your.email@outlook.com",
+              },
+              sign_up: {
+                email_label: "Outlook Email",
+                email_input_placeholder: "your.email@outlook.com",
+              },
+            },
+          }}
         />
       </div>
     </Layout>
