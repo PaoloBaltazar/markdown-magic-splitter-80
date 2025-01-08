@@ -5,18 +5,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Task } from "@/types/task";
 import { taskService } from "@/services/taskService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Tasks = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery({
@@ -31,8 +28,8 @@ const Tasks = () => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.created_by.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.assigned_to.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPriority = priorityFilter ? task.priority === priorityFilter : true;
-    const matchesStatus = statusFilter ? task.status === statusFilter : true;
+    const matchesPriority = priorityFilter === "all" ? true : task.priority === priorityFilter;
+    const matchesStatus = statusFilter === "all" ? true : task.status === statusFilter;
     
     return matchesSearch && matchesPriority && matchesStatus;
   });
@@ -77,7 +74,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Priorities</SelectItem>
+                <SelectItem value="all">All Priorities</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
@@ -91,7 +88,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="in-progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
@@ -105,7 +102,6 @@ const Tasks = () => {
             title="All Tasks" 
             tasks={filteredTasks}
             onStatusChange={(taskId, newStatus) => {
-              // Handle status change
               console.log("Status changed:", taskId, newStatus);
             }}
             onTasksChange={handleTasksChange}
