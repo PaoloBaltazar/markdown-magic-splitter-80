@@ -7,6 +7,15 @@ import { taskService } from "@/services/taskService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/lib/supabase";
+
+interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  avatar_url: string | null;
+  created_at: string;
+}
 
 const Tasks = () => {
   const { toast } = useToast();
@@ -14,13 +23,34 @@ const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
 
   // Fetch tasks
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: taskService.getTasks,
     staleTime: 0,
     gcTime: 0,
+  });
+
+  // Fetch employees
+  const { data: employees = [], isLoading: employeesLoading } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch employees",
+          variant: "destructive",
+        });
+        return [];
+      }
+      return data as Profile[];
+    },
   });
 
   // Filter tasks based on search term and filters
@@ -30,15 +60,17 @@ const Tasks = () => {
                          task.assigned_to.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPriority = priorityFilter === "all" ? true : task.priority === priorityFilter;
     const matchesStatus = statusFilter === "all" ? true : task.status === statusFilter;
+    const matchesEmployee = employeeFilter === "all" ? true : 
+                          task.assigned_to === employeeFilter || task.created_by === employeeFilter;
     
-    return matchesSearch && matchesPriority && matchesStatus;
+    return matchesSearch && matchesPriority && matchesStatus && matchesEmployee;
   });
 
   const handleTasksChange = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
 
-  if (isLoading) {
+  if (tasksLoading || employeesLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-screen">
@@ -57,7 +89,7 @@ const Tasks = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Search Tasks</label>
             <Input
@@ -92,6 +124,22 @@ const Tasks = () => {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="in-progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Employee</label>
+            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by employee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.email}>
+                    {employee.full_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
