@@ -1,121 +1,41 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { TaskList } from "@/components/dashboard/TaskList";
-import { TaskForm } from "@/components/dashboard/TaskForm";
 import { useToast } from "@/hooks/use-toast";
 import { Task } from "@/types/task";
 import { taskService } from "@/services/taskService";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Tasks = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
-  // Auth check effect
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/login');
-        toast({
-          title: "Authentication required",
-          description: "Please log in to access tasks",
-          variant: "destructive",
-        });
-      }
-    };
-    
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        navigate('/login');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, toast]);
-
-  // Set up real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('tasks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('Tasks: Real-time update received', payload);
-          queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: taskService.getTasks,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache the data (previously cacheTime)
+    staleTime: 0,
+    gcTime: 0,
   });
 
-  // Create task mutation
-  const createTaskMutation = useMutation({
-    mutationFn: taskService.createTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast({
-        title: "Success",
-        description: "Task created successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create task",
-        variant: "destructive",
-      });
-    },
+  // Filter tasks based on search term and filters
+  const filteredTasks = tasks.filter((task: Task) => {
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.created_by.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.assigned_to.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPriority = priorityFilter ? task.priority === priorityFilter : true;
+    const matchesStatus = statusFilter ? task.status === statusFilter : true;
+    
+    return matchesSearch && matchesPriority && matchesStatus;
   });
-
-  // Update task status mutation
-  const updateTaskStatusMutation = useMutation({
-    mutationFn: ({ taskId, status }: { taskId: string; status: Task['status'] }) =>
-      taskService.updateTaskStatus(taskId, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast({
-        title: "Success",
-        description: "Task status updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update task status",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
-    updateTaskStatusMutation.mutate({ taskId, status: newStatus });
-  };
-
-  const handleTaskCreated = (newTask: Omit<Task, 'id' | 'created_at'>) => {
-    createTaskMutation.mutate(newTask);
-  };
 
   const handleTasksChange = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -134,25 +54,60 @@ const Tasks = () => {
   return (
     <Layout>
       <div className="space-y-8">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Tasks</h1>
-            <p className="text-gray-600 mt-1">Manage your team's tasks</p>
-          </div>
-          <TaskForm onTaskCreated={handleTaskCreated} />
+        <div>
+          <h1 className="text-3xl font-bold">Tasks</h1>
+          <p className="text-gray-600 mt-1">View and manage all tasks</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Search Tasks</label>
+            <Input
+              placeholder="Search by title, creator, or assignee..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Priority</label>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Priorities</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Status</label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
           <TaskList 
-            title="Active Tasks" 
-            tasks={tasks.filter(task => task.status !== "completed")}
-            onStatusChange={handleStatusChange}
-            onTasksChange={handleTasksChange}
-          />
-          <TaskList 
-            title="Completed Tasks" 
-            tasks={tasks.filter(task => task.status === "completed")}
-            onStatusChange={handleStatusChange}
+            title="All Tasks" 
+            tasks={filteredTasks}
+            onStatusChange={(taskId, newStatus) => {
+              // Handle status change
+              console.log("Status changed:", taskId, newStatus);
+            }}
             onTasksChange={handleTasksChange}
           />
         </div>
