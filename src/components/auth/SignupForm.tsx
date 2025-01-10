@@ -12,13 +12,11 @@ import { PersonalInfoFields } from "./PersonalInfoFields";
 import { ContactInfoFields } from "./ContactInfoFields";
 import { AdditionalInfoFields } from "./AdditionalInfoFields";
 import { supabase } from "@/lib/supabase";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { AlertCircle, XCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 
 export const SignupForm = () => {
   const [loading, setLoading] = useState(false);
-  const [showDuplicateEmail, setShowDuplicateEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [cooldownTimer, setCooldownTimer] = useState<number>(0);
@@ -62,11 +60,9 @@ export const SignupForm = () => {
             type: "manual",
             message: "This email is already registered"
           });
-          setShowDuplicateEmail(true);
         } else if (error.message.includes("Email not found")) {
           setEmailError(null);
           form.clearErrors("email");
-          setShowDuplicateEmail(false);
         } else {
           console.error("Error checking email:", error);
         }
@@ -78,7 +74,7 @@ export const SignupForm = () => {
     checkEmail();
   }, [debouncedEmail, form]);
 
-  // Add cooldown timer effect
+  // Cooldown timer effect
   useEffect(() => {
     if (cooldownTimer > 0) {
       const interval = setInterval(() => {
@@ -98,8 +94,6 @@ export const SignupForm = () => {
             description: `You can try again in ${cooldownTimer} seconds.`,
             variant: "destructive",
           });
-        } else {
-          setShowDuplicateEmail(true);
         }
         return;
       }
@@ -131,7 +125,6 @@ export const SignupForm = () => {
 
       if (signUpError) {
         if (signUpError.message.includes("already registered")) {
-          setShowDuplicateEmail(true);
           setEmailError("This email is already registered");
           form.setError("email", {
             type: "manual",
@@ -153,14 +146,11 @@ export const SignupForm = () => {
       }
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
-        setCooldownTimer(50); // Set 50-second cooldown
-        setError("For security purposes, please wait 50 seconds before trying again.");
-      } else if (error.message?.includes("already registered")) {
-        setShowDuplicateEmail(true);
-        setEmailError("This email is already registered");
-        form.setError("email", {
-          type: "manual",
-          message: "This email is already registered",
+        setCooldownTimer(51); // Set 51-second cooldown as per the error message
+        toast({
+          title: "Rate limit exceeded",
+          description: "For security purposes, please wait 51 seconds before trying again.",
+          variant: "destructive",
         });
       } else {
         console.error("Signup error:", error);
@@ -169,10 +159,6 @@ export const SignupForm = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDuplicateEmailClose = () => {
-    setShowDuplicateEmail(false);
   };
 
   return (
@@ -236,30 +222,6 @@ export const SignupForm = () => {
           </form>
         </Form>
       </Card>
-
-      <AlertDialog open={showDuplicateEmail} onOpenChange={setShowDuplicateEmail}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-center justify-center">
-              <XCircle className="h-6 w-6 text-red-500" />
-              Email Already Registered
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-4">
-              <p>
-                This email address is already registered in our system.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Please use a different email address to create your account or try logging in if you already have an account.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction onClick={handleDuplicateEmailClose}>
-              Try Another Email
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
