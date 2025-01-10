@@ -12,21 +12,12 @@ import { PersonalInfoFields } from "./PersonalInfoFields";
 import { ContactInfoFields } from "./ContactInfoFields";
 import { AdditionalInfoFields } from "./AdditionalInfoFields";
 import { supabase } from "@/lib/supabase";
-import { 
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { AlertCircle, Mail, XCircle } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { AlertCircle, XCircle } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 
 export const SignupForm = () => {
   const [loading, setLoading] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [showDuplicateEmail, setShowDuplicateEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -138,7 +129,11 @@ export const SignupForm = () => {
       }
 
       if (signUpData.user) {
-        setShowConfirmation(true);
+        toast({
+          title: "Account Created Successfully",
+          description: "Please check your email to verify your account.",
+        });
+        navigate("/login");
       }
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
@@ -157,11 +152,6 @@ export const SignupForm = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleConfirmationClose = () => {
-    setShowConfirmation(false);
-    window.location.href = "/login";
   };
 
   const handleDuplicateEmailClose = () => {
@@ -220,33 +210,6 @@ export const SignupForm = () => {
           </form>
         </Form>
       </Card>
-
-      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-center justify-center">
-              <Mail className="h-6 w-6 text-green-500" />
-              Account Created Successfully
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-4">
-              <p>
-                Your account has been created successfully! Please check your email to verify your account.
-              </p>
-              <div className="flex justify-center">
-                <Mail className="h-12 w-12 text-blue-500" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                A verification link has been sent to your email address. Click the link to activate your account.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction onClick={handleConfirmationClose}>
-              Go to Login
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={showDuplicateEmail} onOpenChange={setShowDuplicateEmail}>
         <AlertDialogContent className="max-w-md">
