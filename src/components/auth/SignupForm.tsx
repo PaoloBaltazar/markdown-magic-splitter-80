@@ -142,11 +142,11 @@ export const SignupForm = () => {
           title: "Account Created Successfully",
           description: "Please check your email to verify your account.",
         });
-        navigate("/login");
+        navigate("/success-confirmation"); // Changed from /login to /success-confirmation
       }
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
-        setCooldownTimer(51); // Set 51-second cooldown as per the error message
+        setCooldownTimer(51);
         toast({
           title: "Rate limit exceeded",
           description: "For security purposes, please wait 51 seconds before trying again.",
