@@ -90,11 +90,12 @@ export const SignupForm = () => {
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
+      // Exit early if there's an email error or the form state has an email error
       if (emailError || form.formState.errors.email) {
         setShowDuplicateEmail(true);
         return;
       }
-
+  
       setLoading(true);
       setError(null);
       
@@ -104,20 +105,20 @@ export const SignupForm = () => {
         .select('email')
         .eq('email', data.email)
         .maybeSingle();
-
+  
       if (profileError && profileError.code !== 'PGRST116') {
         console.error("Error checking email:", profileError);
         setError("An error occurred while checking email availability.");
         setLoading(false);
         return;
       }
-
+  
       if (existingProfile) {
         setEmailError("This email is already registered");
         setShowDuplicateEmail(true);
         form.setError("email", {
           type: "manual",
-          message: "This email is already registered"
+          message: "This email is already registered",
         });
         toast({
           title: "Email Already Registered",
@@ -125,9 +126,9 @@ export const SignupForm = () => {
           variant: "destructive",
         });
         setLoading(false);
-        return;
+        return; // Exit here to prevent further execution
       }
-      
+  
       if (data.security_code !== "hrd712") {
         toast({
           title: "Invalid Security Code",
@@ -137,7 +138,7 @@ export const SignupForm = () => {
         setLoading(false);
         return;
       }
-
+  
       const result = await handleSignup(data);
       if (result.success) {
         setShowConfirmation(true);
@@ -147,13 +148,12 @@ export const SignupForm = () => {
           setEmailError("This email is already registered");
           form.setError("email", {
             type: "manual",
-            message: "This email is already registered"
+            message: "This email is already registered",
           });
         } else {
           setError(result.error || "An error occurred during signup. Please try again.");
         }
       }
-      
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
         setError("For security purposes, please wait a minute before trying again.");
@@ -162,7 +162,7 @@ export const SignupForm = () => {
         setEmailError("This email is already registered");
         form.setError("email", {
           type: "manual",
-          message: "This email is already registered"
+          message: "This email is already registered",
         });
       } else {
         console.error("Signup error:", error);
