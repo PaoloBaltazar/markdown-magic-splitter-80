@@ -102,11 +102,19 @@ export const SignupForm = () => {
       setLoading(true);
       setError(null);
       
-      const { data: existingProfile } = await supabase
+      // Check for existing email before proceeding with signup
+      const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
         .select('email')
         .eq('email', data.email)
         .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error("Error checking email:", profileError);
+        setError("An error occurred while checking email availability.");
+        setLoading(false);
+        return;
+      }
 
       if (existingProfile) {
         setEmailError("This email is already registered");
