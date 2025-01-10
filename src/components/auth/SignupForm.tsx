@@ -98,15 +98,15 @@ export const SignupForm = () => {
   
       setLoading(true);
       setError(null);
-      
-      // Check for existing email before proceeding with signup
+  
+      // Double-check for existing email before proceeding with signup
       const { data: existingProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', data.email)
+        .from("profiles")
+        .select("email")
+        .eq("email", data.email)
         .maybeSingle();
   
-      if (profileError && profileError.code !== 'PGRST116') {
+      if (profileError && profileError.code !== "PGRST116") {
         console.error("Error checking email:", profileError);
         setError("An error occurred while checking email availability.");
         setLoading(false);
@@ -114,6 +114,7 @@ export const SignupForm = () => {
       }
   
       if (existingProfile) {
+        console.log("Email already exists in the database:", existingProfile);
         setEmailError("This email is already registered");
         setShowDuplicateEmail(true);
         form.setError("email", {
@@ -125,8 +126,8 @@ export const SignupForm = () => {
           description: "This email address is already in use. Please use a different email.",
           variant: "destructive",
         });
-        setLoading(false);
-        return; // Exit here to prevent further execution
+        setLoading(false); // Ensure loading stops
+        return; // Exit to prevent showing the confirmation modal
       }
   
       if (data.security_code !== "hrd712") {
@@ -139,6 +140,7 @@ export const SignupForm = () => {
         return;
       }
   
+      // Proceed with signup if no errors
       const result = await handleSignup(data);
       if (result.success) {
         setShowConfirmation(true);
@@ -176,6 +178,7 @@ export const SignupForm = () => {
       setLoading(false);
     }
   };
+  
 
   const handleConfirmationClose = () => {
     setShowConfirmation(false);
