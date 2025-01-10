@@ -8,7 +8,6 @@ import { Form } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupFormValues } from "@/types/auth";
-import { handleSignup, handleAuthError } from "@/utils/auth";
 import { PersonalInfoFields } from "./PersonalInfoFields";
 import { ContactInfoFields } from "./ContactInfoFields";
 import { AdditionalInfoFields } from "./AdditionalInfoFields";
@@ -58,24 +57,28 @@ export const SignupForm = () => {
       if (!debouncedEmail || !form.formState.isValid) return;
 
       try {
-        const { data: { user }, error: authError } = await supabase.auth.admin.getUserByEmail(debouncedEmail);
-        
-        if (authError && authError.message !== "User not found") {
-          console.error("Error checking email:", authError);
-          return;
-        }
+        const { data, error } = await supabase.auth.signInWithOtp({
+          email: debouncedEmail,
+          options: {
+            shouldCreateUser: false,
+          }
+        });
 
-        if (user) {
+        // If we get here without an error, it means the email exists
+        if (!error) {
           setEmailError("This email is already registered");
           form.setError("email", {
             type: "manual",
             message: "This email is already registered"
           });
           setShowDuplicateEmail(true);
-        } else {
+        } else if (error.message.includes("Email not found")) {
+          // Email doesn't exist, which is what we want for signup
           setEmailError(null);
           form.clearErrors("email");
           setShowDuplicateEmail(false);
+        } else {
+          console.error("Error checking email:", error);
         }
       } catch (error) {
         console.error("Error checking email:", error);
