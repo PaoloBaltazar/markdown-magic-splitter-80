@@ -21,6 +21,7 @@ export const SignupForm = () => {
   const [showDuplicateEmail, setShowDuplicateEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [cooldownTimer, setCooldownTimer] = useState<number>(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const form = useForm<SignupFormValues>({
@@ -55,7 +56,6 @@ export const SignupForm = () => {
           }
         });
 
-        // If we get here without an error, it means the email exists
         if (!error) {
           setEmailError("This email is already registered");
           form.setError("email", {
@@ -64,7 +64,6 @@ export const SignupForm = () => {
           });
           setShowDuplicateEmail(true);
         } else if (error.message.includes("Email not found")) {
-          // Email doesn't exist, which is what we want for signup
           setEmailError(null);
           form.clearErrors("email");
           setShowDuplicateEmail(false);
@@ -79,11 +78,29 @@ export const SignupForm = () => {
     checkEmail();
   }, [debouncedEmail, form]);
 
+  // Add cooldown timer effect
+  useEffect(() => {
+    if (cooldownTimer > 0) {
+      const interval = setInterval(() => {
+        setCooldownTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [cooldownTimer]);
+
   const onSubmit = async (data: SignupFormValues) => {
     try {
-      // Exit early if there's an email error
-      if (emailError || form.formState.errors.email) {
-        setShowDuplicateEmail(true);
+      // Exit early if there's an email error or if we're in cooldown
+      if (emailError || form.formState.errors.email || cooldownTimer > 0) {
+        if (cooldownTimer > 0) {
+          toast({
+            title: "Please wait",
+            description: `You can try again in ${cooldownTimer} seconds.`,
+            variant: "destructive",
+          });
+        } else {
+          setShowDuplicateEmail(true);
+        }
         return;
       }
   
@@ -100,7 +117,6 @@ export const SignupForm = () => {
         return;
       }
   
-      // Try to sign up the user
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -137,7 +153,8 @@ export const SignupForm = () => {
       }
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
-        setError("For security purposes, please wait a minute before trying again.");
+        setCooldownTimer(50); // Set 50-second cooldown
+        setError("For security purposes, please wait 50 seconds before trying again.");
       } else if (error.message?.includes("already registered")) {
         setShowDuplicateEmail(true);
         setEmailError("This email is already registered");
@@ -174,6 +191,15 @@ export const SignupForm = () => {
         </Alert>
       )}
 
+      {cooldownTimer > 0 && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="ml-2">
+            Please wait {cooldownTimer} seconds before trying again
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="p-6 shadow-lg border-0 bg-white/50 backdrop-blur-sm dark:bg-gray-800/50">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -203,9 +229,9 @@ export const SignupForm = () => {
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary/90 text-white" 
-              disabled={loading || !!emailError}
+              disabled={loading || !!emailError || cooldownTimer > 0}
             >
-              {loading ? "Creating account..." : "Create Account"}
+              {loading ? "Creating account..." : cooldownTimer > 0 ? `Wait ${cooldownTimer}s` : "Create Account"}
             </Button>
           </form>
         </Form>
