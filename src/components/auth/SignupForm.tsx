@@ -1,36 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { z } from "zod";
+import { Form } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-const signupSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Must be a valid Outlook email").endsWith("@outlook.com", "Must be an Outlook email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  contact_number: z.string().min(10, "Contact number must be at least 10 characters"),
-  location: z.string().min(3, "Location must be at least 3 characters"),
-  full_name: z.string().min(3, "Full name must be at least 3 characters"),
-});
-
-type SignupFormValues = z.infer<typeof signupSchema>;
+import { signupSchema, type SignupFormValues } from "@/types/auth";
+import { handleSignup, handleAuthError } from "@/utils/auth";
+import { PersonalInfoFields } from "./PersonalInfoFields";
+import { ContactInfoFields } from "./ContactInfoFields";
+import { AdditionalInfoFields } from "./AdditionalInfoFields";
+import { supabase } from "@/lib/supabase";
+import { 
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle, Mail, XCircle } from "lucide-react";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export const SignupForm = () => {
   const [loading, setLoading] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showDuplicateEmail, setShowDuplicateEmail] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const form = useForm<SignupFormValues>({
@@ -39,142 +39,236 @@ export const SignupForm = () => {
       username: "",
       email: "",
       password: "",
+      birthdate: "",
       contact_number: "",
-      location: "",
+      address: "",
+      gender: "other",
+      security_code: "",
+      position: "",
       full_name: "",
     },
+    mode: "onChange",
   });
+
+  const email = form.watch("email");
+  const debouncedEmail = useDebounce(email, 500);
+
+  useEffect(() => {
+    const checkEmail = async () => {
+      if (!debouncedEmail || !form.formState.isValid) return;
+
+      try {
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('email', debouncedEmail)
+          .maybeSingle();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error("Error checking email:", profileError);
+          return;
+        }
+
+        if (existingProfile) {
+          setEmailError("This email is already registered");
+          form.setError("email", {
+            type: "manual",
+            message: "This email is already registered"
+          });
+          toast({
+            title: "Email Already Registered",
+            description: "This email address is already in use. Please use a different email.",
+            variant: "destructive",
+          });
+        } else {
+          setEmailError(null);
+          form.clearErrors("email");
+        }
+      } catch (error) {
+        console.error("Error checking email:", error);
+      }
+    };
+
+    checkEmail();
+  }, [debouncedEmail, form, toast]);
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
+      if (emailError || form.formState.errors.email) {
+        setShowDuplicateEmail(true);
+        return;
+      }
+
       setLoading(true);
-      const { error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            username: data.username,
-            contact_number: data.contact_number,
-            location: data.location,
-            full_name: data.full_name,
-          },
-          emailRedirectTo: `${window.location.origin}/verify`,
-        },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Please check your email for verification link",
-      });
+      setError(null);
       
-      navigate("/verify");
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', data.email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        setEmailError("This email is already registered");
+        setShowDuplicateEmail(true);
+        form.setError("email", {
+          type: "manual",
+          message: "This email is already registered"
+        });
+        toast({
+          title: "Email Already Registered",
+          description: "This email address is already in use. Please use a different email.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (data.security_code !== "hrd712") {
+        toast({
+          title: "Invalid Security Code",
+          description: "Please enter the correct security code to create an account.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const result = await handleSignup(data);
+      if (result.success) {
+        setShowConfirmation(true);
+      } else {
+        setError(result.error || "An error occurred during signup. Please try again.");
+      }
+      
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message?.includes("over_email_send_rate_limit")) {
+        setError("For security purposes, please wait a minute before trying again.");
+      } else {
+        console.error("Signup error:", error);
+        toast({
+          title: "Error",
+          description: error.message || "An error occurred during signup. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleConfirmationClose = () => {
+    setShowConfirmation(false);
+    window.location.href = "/login";
+  };
+
+  const handleDuplicateEmailClose = () => {
+    setShowDuplicateEmail(false);
+  };
+
   return (
-    <Card className="p-6 w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-center">Sign Up</h2>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="full_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Full Name</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <div className="w-full">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Create an Account</h2>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          Fill in your details to get started
+        </p>
+      </div>
 
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Outlook Email</FormLabel>
-                <FormControl>
-                  <Input {...field} type="email" disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="ml-2">{error}</AlertDescription>
+        </Alert>
+      )}
 
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input {...field} type="password" disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <Card className="p-6 shadow-lg border-0 bg-white/50 backdrop-blur-sm dark:bg-gray-800/50">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Personal Information</h3>
+                <PersonalInfoFields form={form} loading={loading} />
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Contact Information</h3>
+                <ContactInfoFields form={form} loading={loading} />
+                {emailError && (
+                  <div className="text-sm text-red-500 mt-1 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {emailError}
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Additional Information</h3>
+                <AdditionalInfoFields form={form} loading={loading} />
+              </div>
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="w-full bg-primary hover:bg-primary/90 text-white" 
+              disabled={loading || !!emailError}
+            >
+              {loading ? "Creating account..." : "Create Account"}
+            </Button>
+          </form>
+        </Form>
+      </Card>
 
-          <FormField
-            control={form.control}
-            name="contact_number"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Contact Number</FormLabel>
-                <FormControl>
-                  <Input {...field} type="tel" disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-center justify-center">
+              <Mail className="h-6 w-6 text-green-500" />
+              Account Created Successfully
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-4">
+              <p>
+                Your account has been created successfully! Please check your email to verify your account.
+              </p>
+              <div className="flex justify-center">
+                <Mail className="h-12 w-12 text-blue-500" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                A verification link has been sent to your email address. Click the link to activate your account.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction onClick={handleConfirmationClose}>
+              Go to Login
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-          <FormField
-            control={form.control}
-            name="location"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Location</FormLabel>
-                <FormControl>
-                  <Input {...field} disabled={loading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing up..." : "Sign Up"}
-          </Button>
-        </form>
-      </Form>
-    </Card>
+      <AlertDialog open={showDuplicateEmail} onOpenChange={setShowDuplicateEmail}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-center justify-center">
+              <XCircle className="h-6 w-6 text-red-500" />
+              Email Already Registered
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-4">
+              <p>
+                This email address is already registered in our system.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Please use a different email address to create your account or try logging in if you already have an account.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction onClick={handleDuplicateEmailClose}>
+              Try Another Email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 };

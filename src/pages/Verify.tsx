@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Layout } from "@/components/Layout";
 import { Card } from "@/components/ui/card";
@@ -16,16 +16,42 @@ const Verify = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // If user is already confirmed, redirect to main page
       if (session?.user.email_confirmed_at) {
         navigate("/");
+        return;
+      }
+
+      // Handle email confirmation from URL
+      const token_hash = searchParams.get("token_hash");
+      const type = searchParams.get("type");
+      
+      if (token_hash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: type as any,
+        });
+        
+        if (!error) {
+          navigate("/success-confirmation");
+        } else {
+          toast({
+            title: "Error",
+            description: "Invalid or expired verification link",
+            variant: "destructive",
+          });
+        }
       }
     };
+    
     checkSession();
-  }, [navigate]);
+  }, [navigate, searchParams, toast]);
 
   const handleVerify = async () => {
     try {
@@ -38,12 +64,7 @@ const Verify = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Email verified successfully",
-      });
-      
-      navigate("/");
+      navigate("/success-confirmation");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -59,8 +80,8 @@ const Verify = () => {
     <Layout>
       <Card className="p-6 w-full max-w-md mx-auto mt-8">
         <h2 className="text-2xl font-bold mb-6 text-center">Verify Your Email</h2>
-        <p className="text-center mb-6 text-gray-600">
-          Please enter the verification code sent to your email
+        <p className="text-center mb-6 text-gray-600 dark:text-gray-400">
+          Please check your email for the verification link. You won't be able to log in until you verify your email.
         </p>
         
         <div className="space-y-6">

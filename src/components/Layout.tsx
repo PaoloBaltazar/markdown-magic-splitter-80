@@ -14,13 +14,16 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!session && location.pathname !== "/login" && location.pathname !== "/verify") {
+    if (!session && 
+        location.pathname !== "/login" && 
+        location.pathname !== "/success-confirmation") {
       navigate("/login");
     }
   }, [session, navigate, location.pathname]);
 
-  // Don't show sidebar on login or verify pages
-  if (location.pathname === "/login" || location.pathname === "/verify") {
+  // Don't show sidebar on login or success confirmation pages
+  if (location.pathname === "/login" || 
+      location.pathname === "/success-confirmation") {
     return (
       <div className="flex h-screen w-full bg-gray-100 dark:bg-gray-900">
         <div className="flex-1 flex flex-col overflow-hidden">
