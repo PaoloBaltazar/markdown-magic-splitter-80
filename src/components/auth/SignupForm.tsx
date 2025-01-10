@@ -58,18 +58,14 @@ export const SignupForm = () => {
       if (!debouncedEmail || !form.formState.isValid) return;
 
       try {
-        const { data: existingProfile, error: profileError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('email', debouncedEmail)
-          .maybeSingle();
-
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error("Error checking email:", profileError);
+        const { data: { user }, error: authError } = await supabase.auth.admin.getUserByEmail(debouncedEmail);
+        
+        if (authError && authError.message !== "User not found") {
+          console.error("Error checking email:", authError);
           return;
         }
 
-        if (existingProfile) {
+        if (user) {
           setEmailError("This email is already registered");
           form.setError("email", {
             type: "manual",
@@ -79,6 +75,7 @@ export const SignupForm = () => {
         } else {
           setEmailError(null);
           form.clearErrors("email");
+          setShowDuplicateEmail(false);
         }
       } catch (error) {
         console.error("Error checking email:", error);
@@ -90,7 +87,7 @@ export const SignupForm = () => {
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
-      // Exit early if there's an email error or the form state has an email error
+      // Exit early if there's an email error
       if (emailError || form.formState.errors.email) {
         setShowDuplicateEmail(true);
         return;
@@ -98,37 +95,6 @@ export const SignupForm = () => {
   
       setLoading(true);
       setError(null);
-  
-      // Double-check for existing email before proceeding with signup
-      const { data: existingProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("email", data.email)
-        .maybeSingle();
-  
-      if (profileError && profileError.code !== "PGRST116") {
-        console.error("Error checking email:", profileError);
-        setError("An error occurred while checking email availability.");
-        setLoading(false);
-        return;
-      }
-  
-      if (existingProfile) {
-        console.log("Email already exists in the database:", existingProfile);
-        setEmailError("This email is already registered");
-        setShowDuplicateEmail(true);
-        form.setError("email", {
-          type: "manual",
-          message: "This email is already registered",
-        });
-        toast({
-          title: "Email Already Registered",
-          description: "This email address is already in use. Please use a different email.",
-          variant: "destructive",
-        });
-        setLoading(false); // Ensure loading stops
-        return; // Exit to prevent showing the confirmation modal
-      }
   
       if (data.security_code !== "hrd712") {
         toast({
@@ -140,12 +106,21 @@ export const SignupForm = () => {
         return;
       }
   
-      // Proceed with signup if no errors
-      const result = await handleSignup(data);
-      if (result.success) {
-        setShowConfirmation(true);
-      } else {
-        if (result.error?.includes("already registered")) {
+      // Try to sign up the user
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.full_name,
+            username: data.username,
+            contact_number: data.contact_number,
+          },
+        },
+      });
+
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
           setShowDuplicateEmail(true);
           setEmailError("This email is already registered");
           form.setError("email", {
@@ -153,8 +128,14 @@ export const SignupForm = () => {
             message: "This email is already registered",
           });
         } else {
-          setError(result.error || "An error occurred during signup. Please try again.");
+          setError(signUpError.message);
         }
+        setLoading(false);
+        return;
+      }
+
+      if (signUpData.user) {
+        setShowConfirmation(true);
       }
     } catch (error: any) {
       if (error.message?.includes("over_email_send_rate_limit")) {
@@ -168,17 +149,12 @@ export const SignupForm = () => {
         });
       } else {
         console.error("Signup error:", error);
-        toast({
-          title: "Error",
-          description: error.message || "An error occurred during signup. Please try again.",
-          variant: "destructive",
-        });
+        setError(error.message || "An error occurred during signup. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
-  
 
   const handleConfirmationClose = () => {
     setShowConfirmation(false);
