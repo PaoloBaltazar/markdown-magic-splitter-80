@@ -1,24 +1,24 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { serve } from "https://deno.fresh.run/std@v9.6.1/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 import { corsHeaders } from '../_shared/cors.ts'
 
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const { userId } = await req.json()
     
-    // Create a Supabase client with the service role key
-    const supabaseAdmin = createClient(
+    // Initialize Supabase client with service role key
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     // Delete the user from auth.users
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(
       userId
     )
 

@@ -24,7 +24,6 @@ const Index = () => {
         variant: "destructive",
       });
     } else {
-      // Fetch tasks for the authenticated user
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -38,7 +37,6 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
-        // Cast the data to Task[] type since we know the structure matches
         const tasksWithCorrectTypes = (data || []).map(task => ({
           ...task,
           priority: task.priority as Task["priority"],

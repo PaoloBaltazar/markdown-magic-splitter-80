@@ -9,6 +9,215 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      allowed_ips: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          ip_address: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          ip_address: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          ip_address?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          mentions: string[] | null
+          task_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          task_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          mentions?: string[] | null
+          task_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          file_path: string
+          file_type: string
+          id: string
+          last_modified: string
+          size: number
+          title: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          file_path: string
+          file_type: string
+          id?: string
+          last_modified?: string
+          size: number
+          title: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          file_path?: string
+          file_type?: string
+          id?: string
+          last_modified?: string
+          size?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      documents_tasks: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          id: string
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_tasks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_performance: {
+        Row: {
+          employee_id: string | null
+          id: string
+          metric_name: string
+          metric_value: number
+          notes: string | null
+          recorded_at: string | null
+        }
+        Insert: {
+          employee_id?: string | null
+          id?: string
+          metric_name: string
+          metric_value: number
+          notes?: string | null
+          recorded_at?: string | null
+        }
+        Update: {
+          employee_id?: string | null
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          notes?: string | null
+          recorded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_performance_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -56,9 +265,11 @@ export type Database = {
           contact_number: string | null
           created_at: string
           email: string
+          encrypted_data: string
           full_name: string
           id: string
           location: string | null
+          role: string | null
           username: string | null
         }
         Insert: {
@@ -66,9 +277,11 @@ export type Database = {
           contact_number?: string | null
           created_at?: string
           email: string
+          encrypted_data: string
           full_name: string
           id: string
           location?: string | null
+          role?: string | null
           username?: string | null
         }
         Update: {
@@ -76,10 +289,66 @@ export type Database = {
           contact_number?: string | null
           created_at?: string
           email?: string
+          encrypted_data?: string
           full_name?: string
           id?: string
           location?: string | null
+          role?: string | null
           username?: string | null
+        }
+        Relationships: []
+      }
+      security_audits: {
+        Row: {
+          audit_type: string
+          created_at: string
+          findings: Json | null
+          id: string
+          resolved_at: string | null
+          severity: string
+        }
+        Insert: {
+          audit_type: string
+          created_at?: string
+          findings?: Json | null
+          id?: string
+          resolved_at?: string | null
+          severity: string
+        }
+        Update: {
+          audit_type?: string
+          created_at?: string
+          findings?: Json | null
+          id?: string
+          resolved_at?: string | null
+          severity?: string
+        }
+        Relationships: []
+      }
+      security_headers: {
+        Row: {
+          created_at: string
+          enabled: boolean | null
+          header_name: string
+          header_value: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean | null
+          header_name: string
+          header_value: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean | null
+          header_name?: string
+          header_value?: string
+          id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -124,7 +393,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      decrypt_sensitive_data: {
+        Args: {
+          encrypted_data: string
+          key: string
+        }
+        Returns: string
+      }
+      encrypt_sensitive_data: {
+        Args: {
+          data: string
+          key: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

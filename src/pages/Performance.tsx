@@ -11,17 +11,105 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
-const performanceData = [
-  { name: "Jan", value: 85 },
-  { name: "Feb", value: 88 },
-  { name: "Mar", value: 82 },
-  { name: "Apr", value: 91 },
-  { name: "May", value: 87 },
-  { name: "Jun", value: 93 },
-];
+interface PerformanceMetric {
+  id: string;
+  employee_id: string;
+  metric_name: string;
+  metric_value: number;
+  recorded_at: string;
+  notes: string | null;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+}
 
 const Performance = () => {
+  const { toast } = useToast();
+
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ['performance-metrics'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employee_performance')
+        .select(`
+          *,
+          profiles:employee_id (
+            full_name,
+            email
+          )
+        `)
+        .order('recorded_at', { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Error fetching metrics",
+          description: error.message,
+          variant: "destructive",
+        });
+        return [];
+      }
+
+      return data;
+    },
+  });
+
+  const { data: profiles } = useQuery({
+    queryKey: ['employee-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email');
+
+      if (error) {
+        toast({
+          title: "Error fetching profiles",
+          description: error.message,
+          variant: "destructive",
+        });
+        return [];
+      }
+
+      return data;
+    },
+  });
+
+  // Calculate average performance across all metrics
+  const averagePerformance = metrics?.length
+    ? Math.round(
+        metrics.reduce((acc, curr) => acc + curr.metric_value, 0) / metrics.length
+      )
+    : 0;
+
+  // Get unique count of employees with metrics
+  const activeEmployees = new Set(metrics?.map(m => m.employee_id)).size;
+
+  // Get the most recent metrics for trending
+  const recentMetrics = metrics
+    ?.sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+    .slice(0, 6)
+    .reverse();
+
+  // Calculate performance trend (comparing average of recent vs older metrics)
+  const calculateTrend = () => {
+    if (!metrics?.length) return 0;
+    const sortedMetrics = [...metrics].sort((a, b) => 
+      new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+    );
+    const midPoint = Math.floor(sortedMetrics.length / 2);
+    const recentAvg = sortedMetrics.slice(0, midPoint).reduce((acc, curr) => acc + curr.metric_value, 0) / midPoint;
+    const oldAvg = sortedMetrics.slice(midPoint).reduce((acc, curr) => acc + curr.metric_value, 0) / midPoint;
+    return Math.round(((recentAvg - oldAvg) / oldAvg) * 100);
+  };
+
+  const trend = calculateTrend();
+
   return (
     <Layout>
       <div className="space-y-8">
@@ -33,27 +121,27 @@ const Performance = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
             title="Average Performance"
-            value="87%"
+            value={`${averagePerformance}%`}
             icon={<BarChartIcon className="w-8 h-8" />}
-            description="Last 6 months"
+            description="Across all metrics"
           />
           <StatCard
-            title="Growth Rate"
-            value="+12%"
+            title="Performance Trend"
+            value={`${trend > 0 ? '+' : ''}${trend}%`}
             icon={<TrendingUp className="w-8 h-8" />}
-            description="Year over year"
+            description="Compared to previous period"
           />
           <StatCard
-            title="Team Size"
-            value="24"
+            title="Active Employees"
+            value={activeEmployees}
             icon={<Users className="w-8 h-8" />}
-            description="Active employees"
+            description="With recorded metrics"
           />
           <StatCard
-            title="Goals Achieved"
-            value="92%"
+            title="Total Metrics"
+            value={metrics?.length || 0}
             icon={<Target className="w-8 h-8" />}
-            description="This quarter"
+            description="Performance records"
           />
         </div>
 
@@ -61,12 +149,18 @@ const Performance = () => {
           <h2 className="text-xl font-semibold mb-6">Performance Trends</h2>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData}>
+              <BarChart data={recentMetrics}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
+                <XAxis 
+                  dataKey="recorded_at" 
+                  tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                />
                 <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" />
+                <Tooltip 
+                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  formatter={(value, name, props) => [`${value}%`, 'Performance']}
+                />
+                <Bar dataKey="metric_value" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -76,43 +170,50 @@ const Performance = () => {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Top Performers</h2>
             <div className="space-y-4">
-              {[
-                { name: "Jane Smith", score: 95, department: "Engineering" },
-                { name: "John Doe", score: 92, department: "Product" },
-                { name: "Alice Brown", score: 90, department: "Marketing" },
-              ].map((performer) => (
-                <div
-                  key={performer.name}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div>
-                    <h3 className="font-medium">{performer.name}</h3>
-                    <p className="text-sm text-gray-500">{performer.department}</p>
-                  </div>
-                  <div className="text-primary font-semibold">{performer.score}%</div>
-                </div>
-              ))}
+              {metrics
+                ?.sort((a, b) => b.metric_value - a.metric_value)
+                .slice(0, 3)
+                .map((metric) => {
+                  const profile = profiles?.find(p => p.id === metric.employee_id);
+                  return (
+                    <div
+                      key={metric.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div>
+                        <h3 className="font-medium">{profile?.full_name || 'Unknown Employee'}</h3>
+                        <p className="text-sm text-gray-500">{metric.metric_name}</p>
+                      </div>
+                      <div className="text-primary font-semibold">{metric.metric_value}%</div>
+                    </div>
+                  );
+                })}
             </div>
           </Card>
 
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Areas for Improvement</h2>
+            <h2 className="text-xl font-semibold mb-4">Recent Updates</h2>
             <div className="space-y-4">
-              {[
-                { area: "Communication Skills", priority: "High" },
-                { area: "Technical Training", priority: "Medium" },
-                { area: "Project Management", priority: "Medium" },
-              ].map((area) => (
-                <div
-                  key={area.area}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div>
-                    <h3 className="font-medium">{area.area}</h3>
-                    <p className="text-sm text-gray-500">Priority: {area.priority}</p>
-                  </div>
-                </div>
-              ))}
+              {metrics
+                ?.sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
+                .slice(0, 3)
+                .map((metric) => {
+                  const profile = profiles?.find(p => p.id === metric.employee_id);
+                  return (
+                    <div
+                      key={metric.id}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div>
+                        <h3 className="font-medium">{profile?.full_name || 'Unknown Employee'}</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(metric.recorded_at).toLocaleDateString()} - {metric.metric_name}
+                        </p>
+                      </div>
+                      <div className="text-primary font-semibold">{metric.metric_value}%</div>
+                    </div>
+                  );
+                })}
             </div>
           </Card>
         </div>

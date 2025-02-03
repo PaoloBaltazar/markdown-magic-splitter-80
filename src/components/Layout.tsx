@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSessionContext } from "@supabase/auth-helpers-react";
-import { AppSidebar } from "@/components/AppSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { Navbar } from "@/components/Navbar";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,16 +15,18 @@ export const Layout = ({ children }: LayoutProps) => {
   useEffect(() => {
     if (!session && 
         location.pathname !== "/login" && 
-        location.pathname !== "/success-confirmation") {
+        location.pathname !== "/success-confirmation" &&
+        location.pathname !== "/unauthorized") {
       navigate("/login");
     }
   }, [session, navigate, location.pathname]);
 
-  // Don't show sidebar on login or success confirmation pages
+  // Don't show navbar on login, success confirmation, or unauthorized pages
   if (location.pathname === "/login" || 
-      location.pathname === "/success-confirmation") {
+      location.pathname === "/success-confirmation" ||
+      location.pathname === "/unauthorized") {
     return (
-      <div className="flex h-screen w-full bg-gray-100 dark:bg-gray-900">
+      <div className="flex min-h-screen w-full bg-gray-100 dark:bg-gray-900">
         <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 overflow-y-auto p-4 md:p-6">
             {children}
@@ -36,15 +37,13 @@ export const Layout = ({ children }: LayoutProps) => {
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full bg-gray-100 dark:bg-gray-900">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            {children}
-          </main>
-        </div>
+    <div className="flex min-h-screen w-full bg-gray-100 dark:bg-gray-900">
+      <Navbar />
+      <div className="flex-1 flex flex-col overflow-hidden w-full pt-14">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 w-full">
+          {children}
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 };

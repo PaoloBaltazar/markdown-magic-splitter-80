@@ -25,7 +25,6 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
 
-  // Fetch tasks
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: taskService.getTasks,
@@ -33,7 +32,6 @@ const Tasks = () => {
     gcTime: 0,
   });
 
-  // Fetch employees
   const { data: employees = [], isLoading: employeesLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
@@ -53,7 +51,6 @@ const Tasks = () => {
     },
   });
 
-  // Filter tasks based on search term and filters
   const filteredTasks = tasks.filter((task: Task) => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.created_by.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,14 +79,13 @@ const Tasks = () => {
 
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-6 md:space-y-8">
         <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          <p className="text-gray-600 mt-1">View and manage all tasks</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Tasks</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">View and manage all tasks</p>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Search Tasks</label>
             <Input

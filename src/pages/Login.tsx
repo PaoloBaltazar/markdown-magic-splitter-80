@@ -6,12 +6,17 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showSignup, setShowSignup] = useState(false);
   const [searchParams] = useSearchParams();
+  const [emailConfirmationError, setEmailConfirmationError] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -49,19 +54,61 @@ const Login = () => {
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (event === "SIGNED_IN") {
           toast({
             title: "Success",
             description: "Successfully signed in",
           });
           navigate("/");
+        } else if (event === "USER_UPDATED") {
+          setEmailConfirmationError(false);
+          setUnconfirmedEmail(null);
+        } else if (event === "SIGNED_OUT") {
+          setEmailConfirmationError(false);
+          setUnconfirmedEmail(null);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Listen for auth errors
+    const handleAuthError = (e: CustomEvent<any>) => {
+      if (e.detail?.error?.message === "Email not confirmed") {
+        setEmailConfirmationError(true);
+        const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement;
+        setUnconfirmedEmail(emailInput?.value || null);
+      }
+    };
+
+    window.addEventListener('supabase.auth.error', handleAuthError as EventListener);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('supabase.auth.error', handleAuthError as EventListener);
+    };
   }, [navigate, toast, searchParams]);
+
+  const handleResendVerification = async () => {
+    if (!unconfirmedEmail) return;
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: unconfirmedEmail,
+    });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to resend verification email",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Verification email sent",
+      });
+    }
+  };
 
   return (
     <Layout>
@@ -88,6 +135,24 @@ const Login = () => {
                   Sign in to your account to continue
                 </p>
               </div>
+
+              {emailConfirmationError && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="flex flex-col space-y-2">
+                    <p>Please verify your email before signing in.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleResendVerification}
+                      className="w-full mt-2"
+                    >
+                      Resend Verification Email
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="mt-8">
                 <Auth
                   supabaseClient={supabase}
@@ -102,11 +167,11 @@ const Login = () => {
                       },
                     },
                     style: {
-                      anchor: { display: 'none' }, // This will forcefully hide all anchor tags
-                      message: { display: 'none' }, // Hide any additional messages
+                      anchor: { display: 'none' },
+                      message: { display: 'none' },
                     },
                     className: {
-                      anchor: 'hidden', // Belt and suspenders approach
+                      anchor: 'hidden',
                       button: 'w-full bg-primary hover:bg-primary/90 text-white',
                     },
                   }}

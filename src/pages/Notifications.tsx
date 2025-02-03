@@ -1,7 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { Bell, CheckCircle2, Clock, AlertTriangle, Trash2, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
@@ -12,7 +12,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "deadline" | "overdue" | "status" | "completed";
+  type: "deadline" | "overdue" | "status" | "completed" | "assignment" | "mention";
   status: "unread" | "read";
   created_at: string;
   task_id: string;
@@ -26,9 +26,13 @@ const Notifications = () => {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -68,6 +72,52 @@ const Notifications = () => {
     },
   });
 
+  const deleteAllNotificationsMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast({
+        title: "Success",
+        description: "All notifications have been deleted",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete notifications",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast({
+        title: "Success",
+        description: "Notification deleted",
+      });
+    },
+  });
+
   // Subscribe to new notifications
   useEffect(() => {
     const channel = supabase
@@ -100,6 +150,12 @@ const Notifications = () => {
         return <AlertTriangle className="w-5 h-5 text-destructive" />;
       case "status":
         return <Bell className="w-5 h-5 text-blue-500" />;
+      case "assignment":
+        return <CheckCircle2 className="w-5 h-5 text-purple-500" />;
+      case "mention":
+        return <AtSign className="w-5 h-5 text-green-500" />;
+      default:
+        return <Bell className="w-5 h-5 text-blue-500" />;
     }
   };
 
@@ -109,6 +165,21 @@ const Notifications = () => {
 
   const handleMarkAllAsRead = () => {
     markAllAsReadMutation.mutate();
+  };
+
+  const handleDeleteAll = () => {
+    if (notifications.length === 0) {
+      toast({
+        title: "Info",
+        description: "No notifications to delete",
+      });
+      return;
+    }
+    deleteAllNotificationsMutation.mutate();
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    deleteNotificationMutation.mutate(id);
   };
 
   if (isLoading) {
@@ -133,11 +204,21 @@ const Notifications = () => {
               You have {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
             </p>
           </div>
-          {unreadCount > 0 && (
-            <Button onClick={handleMarkAllAsRead}>
-              Mark all as read
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {unreadCount > 0 && (
+              <Button onClick={handleMarkAllAsRead}>
+                Mark all as read
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteAll}
+              >
+                Delete all
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -161,15 +242,24 @@ const Notifications = () => {
                   </div>
                   <p className="text-gray-600 mt-1">{notification.message}</p>
                 </div>
-                {notification.status === "unread" && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => handleMarkAsRead(notification.id)}
+                <div className="flex gap-2">
+                  {notification.status === "unread" && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleMarkAsRead(notification.id)}
+                    >
+                      Mark as read
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteNotification(notification.id)}
                   >
-                    Mark as read
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
-                )}
+                </div>
               </div>
             </Card>
           ))}

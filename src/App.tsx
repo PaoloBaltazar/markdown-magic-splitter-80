@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionContextProvider } from "@supabase/auth-helpers-react";
 import { supabase } from "@/lib/supabase";
+import { IPAccessGuard } from "@/components/IPAccessGuard";
 import Index from "@/pages/Index";
 import Tasks from "@/pages/Tasks";
 import Login from "@/pages/Login";
@@ -11,6 +12,8 @@ import Calendar from "@/pages/Calendar";
 import Employees from "@/pages/Employees";
 import Performance from "@/pages/Performance";
 import Documents from "@/pages/Documents";
+import IPManagement from "@/pages/IPManagement";
+import Unauthorized from "@/pages/Unauthorized";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,15 +31,76 @@ function App() {
       <SessionContextProvider supabaseClient={supabase}>
         <Router>
           <Routes>
+            {/* Public routes that don't require IP validation */}
             <Route path="/login" element={<Login />} />
             <Route path="/success-confirmation" element={<SuccessConfirmation />} />
-            <Route path="/" element={<Index />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/employees" element={<Employees />} />
-            <Route path="/performance" element={<Performance />} />
-            <Route path="/documents" element={<Documents />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            
+            {/* Protected routes that require IP validation */}
+            <Route
+              path="/"
+              element={
+                <IPAccessGuard>
+                  <Index />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/tasks"
+              element={
+                <IPAccessGuard>
+                  <Tasks />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <IPAccessGuard>
+                  <Notifications />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <IPAccessGuard>
+                  <Calendar />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/employees"
+              element={
+                <IPAccessGuard>
+                  <Employees />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/performance"
+              element={
+                <IPAccessGuard>
+                  <Performance />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/documents"
+              element={
+                <IPAccessGuard>
+                  <Documents />
+                </IPAccessGuard>
+              }
+            />
+            <Route
+              path="/ip-management"
+              element={
+                <IPAccessGuard>
+                  <IPManagement />
+                </IPAccessGuard>
+              }
+            />
           </Routes>
         </Router>
       </SessionContextProvider>
