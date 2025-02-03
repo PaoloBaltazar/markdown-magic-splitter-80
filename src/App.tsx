@@ -32,11 +32,18 @@ function App() {
         <Router>
           <Routes>
             {/* Public routes that don't require IP validation */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/success-confirmation" element={<SuccessConfirmation />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/success-confirmation" element={<SuccessConfirmation />} />
             
-            {/* Protected routes that require IP validation */}
+            {/* Protected routes that require IP validation, including login */}
+            <Route
+              path="/login"
+              element={
+                <IPAccessGuard>
+                  <Login />
+                </IPAccessGuard>
+              }
+            />
             <Route
               path="/"
               element={
